@@ -31,8 +31,8 @@ export class Student {
     return this.cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   }
 
-  // Get clean CPF (already clean internally)
-  getCleanCPF(): string {
+  // Get CPF (stored clean internally)
+  getCPF(): string {
     return this.cpf;
   }
 

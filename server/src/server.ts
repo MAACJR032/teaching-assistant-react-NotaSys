@@ -13,6 +13,11 @@ app.use(express.json());
 // In-memory student storage (in production, use a database)
 const studentSet = new StudentSet();
 
+// Helper function to clean CPF
+const cleanCPF = (cpf: string): string => {
+  return cpf.replace(/[.-]/g, '');
+};
+
 // Routes
 
 // GET /api/students - Get all students
@@ -52,7 +57,7 @@ app.put('/api/students/:cpf', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Name and email are required for update' });
     }
     
-    // Create a complete Student object for update
+    // Create a complete Student object for update (cpf will be cleaned in Student constructor)
     const updatedStudent = new Student(name, cpf, email);
     const result = studentSet.updateStudent(updatedStudent);
     res.json(result.toJSON());
@@ -65,7 +70,8 @@ app.put('/api/students/:cpf', (req: Request, res: Response) => {
 app.delete('/api/students/:cpf', (req: Request, res: Response) => {
   try {
     const { cpf } = req.params;
-    const success = studentSet.removeStudent(cpf);
+    const cleanedCPF = cleanCPF(cpf);
+    const success = studentSet.removeStudent(cleanedCPF);
     
     if (!success) {
       return res.status(404).json({ error: 'Student not found' });
@@ -81,7 +87,8 @@ app.delete('/api/students/:cpf', (req: Request, res: Response) => {
 app.get('/api/students/:cpf', (req: Request, res: Response) => {
   try {
     const { cpf } = req.params;
-    const student = studentSet.findStudentByCPF(cpf);
+    const cleanedCPF = cleanCPF(cpf);
+    const student = studentSet.findStudentByCPF(cleanedCPF);
     
     if (!student) {
       return res.status(404).json({ error: 'Student not found' });

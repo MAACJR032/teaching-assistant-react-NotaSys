@@ -14,11 +14,9 @@ export class StudentSet {
     return student;
   }
 
-  // Remove student by CPF
+  // Remove student by CPF (expects clean CPF)
   removeStudent(cpf: string): boolean {
-    // Clean the input CPF for comparison
-    const cleanCPF = cpf.replace(/[.-]/g, '');
-    const index = this.students.findIndex(s => s.cpf === cleanCPF);
+    const index = this.students.findIndex(s => s.cpf === cpf);
     
     if (index === -1) {
       return false;
@@ -45,11 +43,9 @@ export class StudentSet {
     return existingStudent;
   }
 
-  // Find student by CPF
+  // Find student by CPF (expects clean CPF)
   findStudentByCPF(cpf: string): Student | undefined {
-    // Clean the input CPF for comparison
-    const cleanCPF = cpf.replace(/[.-]/g, '');
-    return this.students.find(s => s.cpf === cleanCPF);
+    return this.students.find(s => s.cpf === cpf);
   }
 
   // Get all students
