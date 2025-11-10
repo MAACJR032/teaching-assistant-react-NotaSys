@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Class, CreateClassRequest, getClassId } from '../types/Class';
+import { Student } from '../types/Student';
 import ClassService from '../services/ClassService';
+import { studentService } from '../services/StudentService';
+import EnrollmentService from '../services/EnrollmentService';
 
 interface ClassesProps {
   classes: Class[];
@@ -24,6 +27,99 @@ const Classes: React.FC<ClassesProps> = ({
   });
   const [editingClass, setEditingClass] = useState<Class | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Student enrollment state
+  const [allStudents, setAllStudents] = useState<Student[]>([]);
+  const [enrollmentPanelClass, setEnrollmentPanelClass] = useState<Class | null>(null);
+  const [selectedStudentsForEnrollment, setSelectedStudentsForEnrollment] = useState<Set<string>>(new Set());
+  const [isEnrolling, setIsEnrolling] = useState(false);
+
+  // Load all students for enrollment dropdown
+  const loadAllStudents = useCallback(async () => {
+    try {
+      const students = await studentService.getAllStudents();
+      setAllStudents(students);
+    } catch (error) {
+      onError('Failed to load students for enrollment');
+    }
+  }, [onError]);
+
+  useEffect(() => {
+    loadAllStudents();
+  }, [loadAllStudents]);
+
+  // Handle enrollment form submission
+  const handleBulkEnrollStudents = async () => {
+    if (!enrollmentPanelClass || selectedStudentsForEnrollment.size === 0) {
+      onError('Please select students to enroll');
+      return;
+    }
+
+    setIsEnrolling(true);
+    
+    try {
+      // Enroll each selected student
+      const enrollmentPromises = Array.from(selectedStudentsForEnrollment).map(studentCPF =>
+        EnrollmentService.enrollStudent(enrollmentPanelClass.id, studentCPF)
+      );
+      
+      await Promise.all(enrollmentPromises);
+      
+      // Reset enrollment panel
+      setSelectedStudentsForEnrollment(new Set());
+      setEnrollmentPanelClass(null);
+      
+      // Refresh class data
+      onClassUpdated();
+      
+      onError(''); // Clear any previous errors
+    } catch (error) {
+      onError((error as Error).message);
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
+
+  // Handle opening enrollment panel for a specific class
+  const handleOpenEnrollmentPanel = (classObj: Class) => {
+    setEnrollmentPanelClass(classObj);
+    setSelectedStudentsForEnrollment(new Set());
+  };
+
+  // Handle closing enrollment panel
+  const handleCloseEnrollmentPanel = () => {
+    setEnrollmentPanelClass(null);
+    setSelectedStudentsForEnrollment(new Set());
+  };
+
+  // Handle student selection toggle
+  const handleStudentToggle = (studentCPF: string) => {
+    const newSelection = new Set(selectedStudentsForEnrollment);
+    if (newSelection.has(studentCPF)) {
+      newSelection.delete(studentCPF);
+    } else {
+      newSelection.add(studentCPF);
+    }
+    setSelectedStudentsForEnrollment(newSelection);
+  };
+
+  // Handle select all/none
+  const handleSelectAll = () => {
+    if (!enrollmentPanelClass) return;
+    
+    const availableStudents = getAvailableStudentsForClass(enrollmentPanelClass);
+    setSelectedStudentsForEnrollment(new Set(availableStudents.map(s => s.cpf)));
+  };
+
+  const handleSelectNone = () => {
+    setSelectedStudentsForEnrollment(new Set());
+  };
+
+  // Get students not enrolled in a specific class
+  const getAvailableStudentsForClass = (classObj: Class): Student[] => {
+    const enrolledStudentCPFs = new Set(classObj.enrollments.map(enrollment => enrollment.student.cpf));
+    return allStudents.filter(student => !enrolledStudentCPFs.has(student.cpf));
+  };
 
   // Handle form input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -215,6 +311,13 @@ const Classes: React.FC<ClassesProps> = ({
                       >
                         Delete
                       </button>
+                      <button
+                        className="enroll-btn"
+                        onClick={() => handleOpenEnrollmentPanel(classObj)}
+                        title="Enroll students"
+                      >
+                        Enroll
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -223,6 +326,112 @@ const Classes: React.FC<ClassesProps> = ({
           </div>
         )}
       </div>
+
+      {/* Modern Enrollment Panel */}
+      {enrollmentPanelClass && (
+        <div className="enrollment-overlay">
+          <div className="enrollment-modal">
+            <div className="enrollment-modal-header">
+              <h3>Enroll Students in {enrollmentPanelClass.topic}</h3>
+              <button 
+                className="close-modal-btn"
+                onClick={handleCloseEnrollmentPanel}
+                title="Close"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="enrollment-modal-content">
+              {/* Currently Enrolled Students */}
+              <div className="current-enrollments">
+                <h4>Currently Enrolled ({enrollmentPanelClass.enrollments.length}):</h4>
+                {enrollmentPanelClass.enrollments.length === 0 ? (
+                  <p className="no-enrollments">No students enrolled yet</p>
+                ) : (
+                  <div className="enrolled-students-list">
+                    {enrollmentPanelClass.enrollments.map(enrollment => (
+                      <span key={enrollment.student.cpf} className="enrolled-badge">
+                        {enrollment.student.name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Available Students to Enroll */}
+              <div className="available-students">
+                <div className="available-students-header">
+                  <h4>Available Students ({getAvailableStudentsForClass(enrollmentPanelClass).length}):</h4>
+                  <div className="selection-controls">
+                    <button 
+                      type="button"
+                      className="select-all-btn"
+                      onClick={handleSelectAll}
+                      disabled={getAvailableStudentsForClass(enrollmentPanelClass).length === 0}
+                    >
+                      Select All
+                    </button>
+                    <button 
+                      type="button"
+                      className="select-none-btn"
+                      onClick={handleSelectNone}
+                    >
+                      Select None
+                    </button>
+                  </div>
+                </div>
+
+                {getAvailableStudentsForClass(enrollmentPanelClass).length === 0 ? (
+                  <p className="no-available-students">All registered students are already enrolled in this class</p>
+                ) : (
+                  <div className="students-grid">
+                    {getAvailableStudentsForClass(enrollmentPanelClass).map(student => (
+                      <div 
+                        key={student.cpf} 
+                        className={`student-card ${selectedStudentsForEnrollment.has(student.cpf) ? 'selected' : ''}`}
+                        onClick={() => handleStudentToggle(student.cpf)}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={selectedStudentsForEnrollment.has(student.cpf)}
+                          onChange={() => handleStudentToggle(student.cpf)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <div className="student-info">
+                          <div className="student-name">{student.name}</div>
+                          <div className="student-cpf">{student.cpf}</div>
+                          <div className="student-email">{student.email}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons */}
+              <div className="enrollment-actions">
+                <button 
+                  className="cancel-btn"
+                  onClick={handleCloseEnrollmentPanel}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="enroll-selected-btn"
+                  onClick={handleBulkEnrollStudents}
+                  disabled={isEnrolling || selectedStudentsForEnrollment.size === 0}
+                >
+                  {isEnrolling 
+                    ? 'Enrolling...' 
+                    : `Enroll ${selectedStudentsForEnrollment.size} Student${selectedStudentsForEnrollment.size !== 1 ? 's' : ''}`
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -84,6 +84,23 @@
               "grade": "MPA"
             }
           ]
+        },
+        {
+          "studentCPF": "22222222222",
+          "evaluations": [
+            {
+              "goal": "Configuration Management",
+              "grade": "MANA"
+            },
+            {
+              "goal": "Requirements",
+              "grade": "MA"
+            },
+            {
+              "goal": "Project Management",
+              "grade": "MPA"
+            }
+          ]
         }
       ]
     },
