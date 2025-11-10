@@ -8,6 +8,9 @@ import { Class } from './models/Class';
 import * as fs from 'fs';
 import * as path from 'path';
 
+const multer = require('multer');
+const upload = multer({ dest: 'temp_data/' });
+
 const app = express();
 const PORT = 3005;
 
@@ -434,6 +437,10 @@ app.put('/api/classes/:classId/enrollments/:studentCPF/evaluation', (req: Reques
     res.status(400).json({ error: (error as Error).message });
   }
 });
+
+// PUT /api/classes/:classId/enrollments, used for import grades
+app.post('/api/classes/evaluationImport/:classId', upload.single('file'), (req: Request, res: Response) => {
+})
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
