@@ -144,7 +144,7 @@ const Evaluations: React.FC<EvaluationsProps> = ({ onError }) => {
       {selectedClass && selectedClass.enrollments.length > 0 && (
         <div className="evaluation-table-container">
           <div id="upload-div">
-            <ImportComponent />
+            <ImportComponent classID={selectedClassId}/>
           </div>
           <h4>{selectedClass.topic} ({selectedClass.year}/{selectedClass.semester})</h4>
           

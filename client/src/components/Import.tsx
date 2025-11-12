@@ -1,21 +1,17 @@
-import React, { useState, ChangeEvent } from "react";
+import React, { useState, ChangeEvent, useEffect } from "react";
 import CustomFileInput from "./shared/InputFile/InputFile";
 const API_BASE_URL = 'http://localhost:3005';
 
 // Campos alvo para o mapping
-// TODO: Pegar isso com base na turma do back
-const TARGET_FIELDS = [
-  "Requirements",
-  "Configuration Management",
-  "Project Management",
-  "Design",
-  "Tests",
-  "Refactoring",
-];
 
+interface ImportComponentProps {
+  classID: string
+}
 // componente especifico de de importacao de arquivos
 // ele tem 2 estados, o de selecionar o arquivo e o outro de fazer o mapping das colunas
-export const ImportComponent: React.FC = () => {
+export const ImportComponent: React.FC<ImportComponentProps> = (
+{classID = ""}  
+) => {
   // Estado do passo atual
   const [step, setStep] = useState<number>(1);
 
@@ -34,6 +30,16 @@ export const ImportComponent: React.FC = () => {
   const [mapping, setMapping] = useState<{ [key: string]: string }>({});
 
   const [session, setSession] = useState<string>("");
+  
+  // sempre que classID mudar ele vai resetar tudo
+  useEffect(() => {
+    setStep(1);
+    setSelectedFile(null);
+    setColumns([]);
+    setFields([]);
+    setMapping({});
+    setSession("");
+  }, [classID]);
   // -----------------------------
   // Funções a implementar
   // -----------------------------
@@ -59,7 +65,7 @@ export const ImportComponent: React.FC = () => {
 
       // TODO: tem de pegar o classesID do back quando selecionar no front
       try {
-        const response = await fetch(API_BASE_URL + '/api/classes/evaluationImport/1', {
+        const response = await fetch(API_BASE_URL + '/api/classes/evaluationImport/' + classID, {
           method: 'POST',
           body: formData,
         });
