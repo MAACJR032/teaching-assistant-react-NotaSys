@@ -7,6 +7,7 @@ import { Classes } from './models/Classes';
 import { Class } from './models/Class';
 import * as fs from 'fs';
 import * as path from 'path';
+import { CSVReader } from './services/SpreeadsheetReader';
 
 // usado para ler arquivos em POST
 const multer = require('multer');
@@ -532,7 +533,51 @@ app.put('/api/classes/:classId/enrollments/:studentCPF/evaluation', (req: Reques
 // [Front] Upload → [Back] lê só o cabeçalho e retorna colunas da planilha e os goals da 'classId'
 // [Front] Mapeia colunas da planilha para os goals → [Back] faz parse completo (stream)
 app.post('/api/classes/gradeImport/:classId', upload_dir.single('file'), async (req: express.Request, res: express.Response) => {
-  res.status(501).json({ error: "Endpoint ainda não implementado." });
+  // 2 tipos de resposta, quando manda arquivo e quando nao manda, quando manda:
+  // res.send({ status: 200, session_string: fileP, file_columns: file_cols, mapping_colums: field_cols });
+  // fileP e como se fosse um sessionID, sem mexer com sessao necessariamente
+  // file_columns e o nome das colunas do arquivo
+  // mapping_colums e o nome das colunas que espera receber, para ser mapeado
+  // o outro tipo de resposta e apenas um res.send({status: 200}), que ja recebe os dados
+  const fileP = req.file?.path ?? ""; 
+  if (!fileP) {
+    res.status(501).json({ error: "Endpoint ainda não implementado." });
+    return;
+  }
+  if (!fileP) {
+    return res.status(400).json({ error: "Arquivo não enviado" });
+  }
+  
+  const classId = req.params.classId;
+  const classObj = classes.findClassById(classId);
+  if (!classObj) {
+    return res.status(404).json({ error: "Class not Found" });
+    return;
+  }
+  
+  const enroll = classObj.getEnrollments();
+  if (!enroll) {
+    res.status(404).json({ error: "Enrolments not found" });
+    return;
+  }
+
+  
+  
+  // pegar os goals, de forma condizente com os dados e nao algo hardcoded
+  const goals_field = Array.from(
+      new Set(
+        enroll.flatMap(enrollment => 
+          enrollment.getEvaluations().map(eval_ => eval_.getGoal())
+        )
+      )
+    );
+  // TODO: verificar o tipo de arquivo
+  var sheet = new CSVReader(fileP);
+  const file_colums = await sheet.getColumns();
+  res.status(200).json({session_string: fileP, file_columns: file_colums, mapping_colums: goals_field})
+  return;
+  
+
 });
 
 app.listen(PORT, () => {

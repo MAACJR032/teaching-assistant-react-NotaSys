@@ -4,12 +4,13 @@ const API_BASE_URL = 'http://localhost:3005';
 
 
 interface ImportGradeComponentProps {
-  classID: string
+  classID: string,
+  toReset: () => Promise<void>
 }
 
 export const ImportGradeComponent: React.FC<ImportGradeComponentProps> = (
-  { classID = "" }
-) => { 
+  { classID = "", toReset }
+) => {
   // Estado do passo atual
   const [step, setStep] = useState<number>(1);
 
@@ -68,8 +69,8 @@ export const ImportGradeComponent: React.FC<ImportGradeComponentProps> = (
           body: formData,
         });
 
-        console.log('Status Code:', response.status);
-        console.log('Status Text:', response.statusText);
+        // console.log('Status Code:', response.status);
+        // console.log('Status Text:', response.statusText);
 
         if (response.status >= 200 && response.status < 300) {
           // Status code de sucesso (2xx)
@@ -80,7 +81,7 @@ export const ImportGradeComponent: React.FC<ImportGradeComponentProps> = (
           const mapping_colums: string[] = resp_json.mapping_colums || null;
 
           if (session_ && file_columns && mapping_colums) {
-            console.log("Deu certo");
+            // console.log("Deu certo");
             setSession(session_ as string);
             setColumns(file_columns as string[]);
             setFields(mapping_colums as string[]);
@@ -116,16 +117,32 @@ export const ImportGradeComponent: React.FC<ImportGradeComponentProps> = (
   };
 
   // Vai mandar para o back o mapeamento
-  const sendToBackendMapping = () => {
+  const sendToBackendMapping = async () => {
     // usando o session manda de volta para passar o mapping
 
     const cleanedMapping = Object.fromEntries(
         Object.entries(mapping).filter(([_, value]) => value !== '')
       );
-
     setMapping(cleanedMapping);
-    console.log(cleanedMapping); // pois o useState e async, assim mais atualizado usar o clean
-    console.log("Send to back")
+    try {
+      const f = new FormData();
+      f.append('session', session);
+      f.append('mapping', JSON.stringify(cleanedMapping));
+
+      const response = await fetch(API_BASE_URL + '/api/classes/gradeImport/' + classID, {
+        method: "POST",
+        body: JSON.stringify(f)
+      });
+
+      if(!response.ok){
+        throw new Error("Erro ao enviar o mapping");
+      }
+      // call loadclasses in evaluation component
+      await toReset();
+    } catch(error) {
+      console.error({ error: error });
+    }
+
   };
 
   // Atualiza o mapping quando o usuário seleciona um valor

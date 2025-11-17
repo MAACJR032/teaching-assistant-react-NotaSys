@@ -1,57 +1,57 @@
-// TODO: Melhorar essa extensão de classe
-export abstract class SpreadsheetReader <TOut = any>{
+import readline from "readline";
+import fs from "fs";
+import { promises as fsP } from "fs";
+
+export abstract class SpreadsheetReader{
   filepath: string;
-  mapping: { [key: string]: string };
-  default_fields: string[];
 
   constructor(
     filepath: string,
-    mapping: { [key: string]: string },
-    default_fields: string[],
   ) {
     this.filepath = filepath;
-    this.mapping = mapping;
-    this.default_fields = default_fields;
   }
 
-  /** Valida campos obrigatórios */
-   protected validateDefaults(header: string[]) {
-     for (const field of this.default_fields) {
-       if (!header.includes(field)) {
-         throw new Error(`Campo obrigatório faltando: ${field}`);
-       }
-     }
-   }
-
    /** Leitura genérica do arquivo */
-   protected async loadFile(): Promise<TOut> {
-     const fs = await import("fs/promises");
-     const content = await fs.readFile(this.filepath);
-     return content as TOut;
+   protected async loadFile(): Promise<string> {
+     // O encoding faz o readFile retornar string em vez de Buffer
+     const content = await fsP.readFile(this.filepath, { encoding: "utf-8" });
+     return content;
    }
     /** Deve ser implementado por subclasses */
     abstract process(): Promise<any[]>;
+    abstract getColumns(): Promise<string[]>;
 }
 
 
-export class CSVReader extends SpreadsheetReader<any[]> {
-  async loadFile(): Promise<any> {
-    const fs = await import("fs/promises");
-    return fs.readFile(this.filepath, "utf-8");
-  }
-
+export class CSVReader extends SpreadsheetReader {
   async process(): Promise<any[]> {
     throw new Error("Method not implemented yet");
+  }
+  // le apenas a primeira linha, se
+  getColumns(): Promise<string[]> {
+    const fsStream = fs.createReadStream(this.filepath);
+    const rl = readline.createInterface({ input: fsStream, crlfDelay: Infinity });
+
+    // le apenas a primeira linha de forma async
+    return new Promise((resolve, reject) => {
+      rl.on("line", (line) => {
+        rl.close();
+        resolve(line.split(",").map(c => c.trim()));
+      });
+
+      rl.on("error", (err) => {
+        reject(err);
+      });
+    });
+
   }
 }
 
-export class XLSXReader extends SpreadsheetReader<any[]> {
-  async loadFile(): Promise<any> {
-    const fs = await import("fs/promises");
-    return fs.readFile(this.filepath, "utf-8");
-  }
-
+export class XLSXReader extends SpreadsheetReader {
   async process(): Promise<any[]> {
     throw new Error("Method not implemented yet");
+  }
+  getColumns(): Promisse<string[]> {
+    throw new Error("Not implemented");
   }
 }
