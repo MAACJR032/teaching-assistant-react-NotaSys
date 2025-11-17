@@ -4,6 +4,9 @@ import { Evaluation } from './Evaluation';
 export interface Enrollment {
   student: Student;
   evaluations: Evaluation[];
+  mediaPreFinal: number | null;
+  mediaPosFinal: number | null;
+  reprovadoPorFalta?: boolean;
 }
 
 export interface CreateEnrollmentRequest {

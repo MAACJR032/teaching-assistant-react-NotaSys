@@ -5,6 +5,17 @@
   padding: 0;
 }
 
+.evaluation-table thead th,
+.student-name-header,
+.goal-header,
+.average-header,
+.final-average-header {
+  color: #ffffff !important;
+  font-size: 0.725rem;
+  text-align: center;
+  vertical-align: middle;
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
@@ -1091,6 +1102,50 @@ tbody tr:last-child td {
   border: 1px solid #cbd5e1;
   width: calc((100% - 200px) / 6); /* Equal width for all goal columns */
   vertical-align: middle;
+}
+
+.average-header {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  padding: 16px 8px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1px solid #047857;
+  width: calc((100% - 200px) / 6); /* Equal width for all 6 goal columns */
+  text-shadow: 0 1px 2px rgba(244, 240, 240, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.average-cell {
+  text-align: center;
+  padding: 0.5rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.final-average-header {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  color: white;
+  padding: 16px 8px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1px solid #047857;
+  width: calc((100% - 200px) / 6); /* Equal width for all 6 goal columns */
+  text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.2);
+  vertical-align: middle;
+  line-height: 1.2;
+}
+
+.final-average-cell {
+  text-align: center;
+  padding: 0.5rem;
+  font-weight: 500;
+  color: #374151;
 }
 
 .student-row:nth-child(even) .evaluation-cell {
