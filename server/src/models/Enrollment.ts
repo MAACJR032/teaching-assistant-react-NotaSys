@@ -5,12 +5,12 @@ export class Enrollment {
   private student: Student;
   private evaluations: Evaluation[];
   // Média do estudante antes da prova final
-  private mediaPreFinal: number;
+  private mediaPreFinal: number | null;
   // Média do estudante depois da final
-  private mediaPosFinal: number;
+  private mediaPosFinal: number | null;
   private reprovadoPorFalta: Boolean;
 
-  constructor(student: Student, evaluations: Evaluation[] = [], mediaPreFinal: number = 0, mediaPosFinal: number = 0, reprovadoPorFalta: Boolean = false) {
+  constructor(student: Student, evaluations: Evaluation[] = [], mediaPreFinal: number | null = null, mediaPosFinal: number | null = null, reprovadoPorFalta: Boolean = false) {
     this.student = student;
     this.evaluations = evaluations;
     this.mediaPreFinal = mediaPreFinal;
@@ -28,8 +28,18 @@ export class Enrollment {
     return [...this.evaluations]; // Return copy to prevent external modification
   }
 
+  // Calcula a média do estudante antes da prova final
+  calculateMediaPreFinal(): number {
+    throw new Error('calculateMedia() not implemented yet');
+  }
+
+  // Calcula a média do estudante depois da prova final
+  calculateMediaPosFinal(): number {
+    throw new Error('calculateMedia() not implemented yet');
+  }
+
   // Get media do estudante antes da prova final
-  getMediaPreFinal(): number{
+  getMediaPreFinal(): number | null {
     return this.mediaPreFinal;
   }
 
@@ -39,7 +49,7 @@ export class Enrollment {
   }
 
   // Get média do estudante depois da final
-  getMediaPosFinal(): number{
+  getMediaPosFinal(): number | null {
     return this.mediaPosFinal;
   }
 
@@ -87,7 +97,10 @@ export class Enrollment {
   toJSON() {
     return {
       student: this.student.toJSON(),
-      evaluations: this.evaluations.map(evaluation => evaluation.toJSON())
+      evaluations: this.evaluations.map(evaluation => evaluation.toJSON()),
+      mediaPreFinal: this.mediaPreFinal,
+      mediaPosFinal: this.mediaPosFinal,
+      reprovadoPorFalta: this.reprovadoPorFalta
     };
   }
 
