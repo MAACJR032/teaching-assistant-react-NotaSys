@@ -129,7 +129,7 @@ export const ImportGradeComponent: React.FC<ImportGradeComponentProps> = (
         session,
         mapping: cleanedMapping,
       };
-
+      console.log(f);
       const response = await fetch(API_BASE_URL + '/api/classes/gradeImport/' + classID, {
         method: "POST",
         headers: {
@@ -139,7 +139,7 @@ export const ImportGradeComponent: React.FC<ImportGradeComponentProps> = (
       });
 
       if(!response.ok){
-        throw new Error("Erro ao enviar o mapping");
+        throw new Error(`Erro ao enviar o mapping`);
       }
       // call loadclasses in evaluation component
       await toReset();

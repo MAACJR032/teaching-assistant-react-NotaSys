@@ -498,19 +498,39 @@ app.post('/api/classes/gradeImport/:classId', upload_dir.single('file'), async (
     const data = await sheet.process(); // a json from sheet
     // linhas com as colunas certas pos mapeamento
     var parsed_lines: any[] = []
-    
+    // alguma coisa ta vazia, na teoria esta pegando
     data.forEach((l) => {
       const filtered = Object.fromEntries(
         goals_field.map(k => [k, l[invertedMapping[k]] ?? ""])
       )
       parsed_lines.push(filtered);
     });
-
+    var idx = 0;
     
+    for (const l of parsed_lines) {
+      console.log(l);
+      idx += 1;
+      const cleanedcpf = cleanCPF(l['cpf']);
+      console.log(l['cpf']);
+      //   const enrollment = classObj.findEnrollmentByStudentCPF(cleanedcpf);
+      //   if (!enrollment) {
+      //     return res.status(404).json({ error: `Student, ${cleanedcpf}, not enrolled in this class` });
+      //   }
     
-    res.status(200).json(parsed_lines);
+      //   for (const [goal, grade] of Object.entries(l).filter(([k]) => k !== 'cpf')) {
+      //     if (grade === '') {
+      //       enrollment.removeEvaluation(goal);
+      //     } else if (!['MANA', 'MPA', 'MA'].includes(grade)) {
+      //       return res.status(400).json({ error: `Invalid grade, for ${goal} on CPF=${cleanedcpf}. Must be MANA, MPA, or MA` });
+      //     } else {
+      //       enrollment.addOrUpdateEvaluation(goal, grade);
+      //     }
+      //   }
+      // }
+    }
+    // triggerSave();
   }
-
+    res.status(200).json(parsed_lines);
 });
 
 app.listen(PORT, () => {

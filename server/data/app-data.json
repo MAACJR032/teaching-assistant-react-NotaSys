@@ -104,6 +104,18 @@
             {
               "goal": "Project Management",
               "grade": "MPA"
+            },
+            {
+              "goal": "Design",
+              "grade": "MANA"
+            },
+            {
+              "goal": "Tests",
+              "grade": "MANA"
+            },
+            {
+              "goal": "Refactoring",
+              "grade": "MANA"
             }
           ]
         }
