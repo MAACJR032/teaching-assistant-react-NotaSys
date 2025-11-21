@@ -2,3 +2,7 @@ node_modules
 server/dist
 client/build
 temp_data/
+
+# Cucumber test reports
+client/reports/
+cucumber-report.*
