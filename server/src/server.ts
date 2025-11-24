@@ -133,15 +133,22 @@ const loadDataFromFile = (): void => {
   }
 };
 
+// Test mode flag to disable file persistence
+const isTestMode = process.env.NODE_ENV === 'test';
+
 // Trigger save after any modification (async to not block operations)
 const triggerSave = (): void => {
-  setImmediate(() => {
-    saveDataToFile();
-  });
+  if (!isTestMode) {
+    setImmediate(() => {
+      saveDataToFile();
+    });
+  }
 };
 
-// Load existing data on startup
-loadDataFromFile();
+// Load existing data on startup (only in non-test mode)
+if (!isTestMode) {
+  loadDataFromFile();
+}
 
 // Helper function to clean CPF
 const cleanCPF = (cpf: string): string => {
@@ -489,6 +496,12 @@ app.post('/api/classes/gradeImport/:classId', upload_dir.single('file'), async (
   res.status(501).json({ error: "Endpoint ainda não implementado." });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export the app for testing
+export { app, studentSet, classes };
+
+// Only start the server if this file is run directly (not imported for testing)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
