@@ -1,0 +1,84 @@
+# Pull Request - Teaching Assistant
+
+## 📝 Descrição
+<!-- Descreva de forma clara e objetiva as mudanças realizadas -->
+
+**O que foi feito:**
+
+
+**Por que foi feito:**
+
+## 📌 Observações
+<!-- Informações extras para os revisores, dúvidas, decisões técnicas, etc. -->
+
+## 🚀 Deploy/Release Notes
+<!-- Se aplicável, notas sobre deploy ou informações para changelog -->
+
+## 🔧 Tipo de mudança
+<!-- Marque com x o que se aplica -->
+- [ ] 🐛 Correção de bug (fix)
+- [ ] ✨ Nova funcionalidade (feature)
+- [ ] ♻️ Refatoração de código
+- [ ] 📚 Atualização de documentação
+- [ ] ✅ Adição/atualização de testes
+- [ ] 🎨 Melhorias de UI/UX
+- [ ] 🔒 Correção de segurança
+- [ ] ⚡ Melhoria de performance
+
+## 🧪 Testes
+<!-- Descreva como as mudanças foram testadas -->
+
+### Testes automatizados
+- [ ] Testes unitários passando (Jest - server)
+- [ ] Testes E2E passando (Cucumber - client)
+- [ ] Cobertura de testes mantida/aumentada
+
+### Como revisar e testar
+
+**Server:**
+```bash
+cd server
+npm install
+npm test
+npm run test:coverage
+```
+
+**Client:**
+```bash
+cd client
+npm install
+npm start
+# Em outro terminal:
+npm run test:cucumber
+```
+
+## 📦 Área afetada
+<!-- Marque com x as áreas do projeto afetadas -->
+- [ ] 🖥️ Client (React)
+- [ ] 🔌 Server (Express/API)
+- [ ] 📊 Models/Classes
+- [ ] 🎓 Gerenciamento de Estudantes
+- [ ] 📋 Gerenciamento de Turmas
+- [ ] 📈 Gerenciamento de Avaliações
+- [ ] 📄 Importação de dados
+- [ ] 🧪 Testes
+
+## 📸 Screenshots/GIFs
+<!-- Se aplicável, adicione capturas de tela ou GIFs das mudanças visuais -->
+
+
+## ✅ Checklist
+<!-- Marque com x tudo que foi feito -->
+- [ ] Código segue os padrões do projeto
+- [ ] Realizei self-review do código
+- [ ] Comentei código em áreas complexas
+- [ ] Atualizei a documentação (se necessário)
+- [ ] Mudanças não geram warnings
+- [ ] Adicionei testes que provam que a correção/feature funciona
+- [ ] Testes novos e existentes passam localmente
+- [ ] Mudanças dependentes foram merged e publicadas
+
+## 🔗 Issues relacionadas
+<!-- Referencie issues relacionadas -->
+- Closes #
+- Relacionado a #
