@@ -87,10 +87,10 @@ export class Report implements IReportGenerator {
     return false;
   }
 
-private calculateApprovalStats(): { approved: number; approvedFinal: number; notApproved: number } {
+  private calculateApprovalStats(): { approved: number; approvedFinal: number; notApproved: number } {
     // Not implemented yet.
     return { approved: 0, approvedFinal: 0, notApproved: 0 };
-}
+  }
 
   private calculateEvaluationPerformance(): EvaluationPerformance[] {
     // Not implemented yet.
