@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Student } from '../types/Student';
+import { StudentStatus } from '../types/StudentStatusColor';
 import { studentService } from '../services/StudentService';
-import AcademicStatusBadge from './AcademicStatusBadge';
-import AcademicStatusDetailModal from './AcademicStatusDetail';
 
 interface StudentListProps {
   students: Student[];
+  studentsStatus?: StudentStatus[];
   onStudentDeleted: () => void;
   onEditStudent: (student: Student) => void;
   onError: (errorMessage: string) => void;
@@ -13,13 +13,12 @@ interface StudentListProps {
   selectedClass?: { id: string } | null;
 }
 
-const StudentList: React.FC<StudentListProps> = ({
-  students,
-  onStudentDeleted,
-  onEditStudent,
-  onError,
-  loading,
-  selectedClass
+const StudentList: React.FC<StudentListProps> = ({ 
+  students, 
+  onStudentDeleted, 
+  onEditStudent, 
+  onError, 
+  loading 
 }) => {
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -43,11 +42,26 @@ const StudentList: React.FC<StudentListProps> = ({
     }
   };
 
+  const handleEdit = (student: Student) => {
+    onEditStudent(student);
+  };
+
   if (loading) {
     return (
       <div className="students-list">
-        <h2>Students</h2>
-        <div className="loading">Loading...</div>
+        <h2>Students ({students.length})</h2>
+        <div className="loading">Loading students...</div>
+      </div>
+    );
+  }
+
+  if (students.length === 0) {
+    return (
+      <div className="students-list">
+        <h2>Students (0)</h2>
+        <div className="no-students">
+          No students registered yet. Add your first student using the form above.
+        </div>
       </div>
     );
   }
@@ -60,6 +74,7 @@ const StudentList: React.FC<StudentListProps> = ({
         <table>
           <thead>
             <tr>
+              <th></th>
               <th>Name</th>
               <th>CPF</th>
               <th>Email</th>
@@ -69,26 +84,26 @@ const StudentList: React.FC<StudentListProps> = ({
           </thead>
 
           <tbody>
-            {students.map(student => (
-              <tr key={student.cpf}>
-                <td>{student.name}</td>
-                <td>{student.cpf}</td>
-                <td>{student.email}</td>
-
+            {students.map((student) => (
+              <tr key={student.cpf} data-testid={`student-row-${student.cpf}`}>
+                <td data-testid="student-name">{student.name}</td>
+                <td data-testid="student-cpf">{student.cpf}</td>
+                <td data-testid="student-email">{student.email}</td>
                 <td>
-                  <AcademicStatusBadge
-                    studentCPF={student.cpf}
-                    classId={selectedClass ? selectedClass.id : null}
-                    onClick={(status) => handleOpenDetail(student, status)}
-                  />
-                </td>
-
-                <td>
-                  <button className="edit-btn" onClick={() => onEditStudent(student)}>
+                  <button
+                    className="edit-btn"
+                    data-testid={`edit-student-${student.cpf}`}
+                    onClick={() => handleEdit(student)}
+                    title="Edit student"
+                  >
                     Edit
                   </button>
-
-                  <button className="delete-btn" onClick={() => handleDelete(student)}>
+                  <button
+                    className="delete-btn"
+                    data-testid={`delete-student-${student.cpf}`}
+                    onClick={() => handleDelete(student)}
+                    title="Delete student"
+                  >
                     Delete
                   </button>
                 </td>
@@ -98,13 +113,6 @@ const StudentList: React.FC<StudentListProps> = ({
 
         </table>
       </div>
-
-      <AcademicStatusDetailModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-        studentName={modalStudentName}
-        status={modalStatus}
-      />
     </div>
   );
 };

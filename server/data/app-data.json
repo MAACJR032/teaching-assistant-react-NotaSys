@@ -31,13 +31,25 @@
       "topic": "Engenharia de Software e Sistemas",
       "semester": 1,
       "year": 2025,
+      "especificacaoDoCalculoDaMedia": {
+        "pesosDosConceitos": {
+          "MA": 10,
+          "MPA": 7,
+          "MANA": 0
+        },
+        "pesosDasMetas": {
+          "Gerência de Configuração": 1,
+          "Gerência de Projeto": 1,
+          "Qualidade de Software": 1
+        }
+      },
       "enrollments": [
         {
           "studentCPF": "11111111111",
           "evaluations": [
             {
               "goal": "Requirements",
-              "grade": "MPA"
+              "grade": "MA"
             },
             {
               "goal": "Configuration Management",
@@ -45,7 +57,7 @@
             },
             {
               "goal": "Project Management",
-              "grade": "MANA"
+              "grade": "MA"
             },
             {
               "goal": "Design",
@@ -53,7 +65,7 @@
             },
             {
               "goal": "Tests",
-              "grade": "MPA"
+              "grade": "MA"
             },
             {
               "goal": "Refactoring",
@@ -78,11 +90,11 @@
             },
             {
               "goal": "Design",
-              "grade": "MA"
+              "grade": "MPA"
             },
             {
               "goal": "Refactoring",
-              "grade": "MA"
+              "grade": "MPA"
             },
             {
               "goal": "Tests",
@@ -99,10 +111,22 @@
             },
             {
               "goal": "Requirements",
-              "grade": "MA"
+              "grade": "MPA"
             },
             {
               "goal": "Project Management",
+              "grade": "MPA"
+            },
+            {
+              "goal": "Design",
+              "grade": "MPA"
+            },
+            {
+              "goal": "Tests",
+              "grade": "MPA"
+            },
+            {
+              "goal": "Refactoring",
               "grade": "MPA"
             }
           ]
@@ -113,6 +137,18 @@
       "topic": "Engenharia de Software e Sistemas",
       "semester": 2,
       "year": 2025,
+      "especificacaoDoCalculoDaMedia": {
+        "pesosDosConceitos": {
+          "MA": 10,
+          "MPA": 7,
+          "MANA": 0
+        },
+        "pesosDasMetas": {
+          "Gerência de Configuração": 1,
+          "Gerência de Projeto": 1,
+          "Qualidade de Software": 1
+        }
+      },
       "enrollments": [
         {
           "studentCPF": "22222222222",

@@ -5,10 +5,13 @@ import { Student } from './models/Student';
 import { Evaluation, EVALUATION_GOALS } from './models/Evaluation';
 import { Classes } from './models/Classes';
 import { Class } from './models/Class';
+import { Report } from './models/Report';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// usado para ler arquivos em POSTimport { getStudentMediaParcial ,getClassificacaoAcademica, isStudentReprovadoPorFalta, getActualPreviousFailuresCount, getStudentFrequencyPercentage} from './services/AcademicStatusColor'; 
+import { EspecificacaoDoCalculoDaMedia, DEFAULT_ESPECIFICACAO_DO_CALCULO_DA_MEDIA } from './models/EspecificacaoDoCalculoDaMedia';
+import { getStudentStatusColor } from './models/StudentStatusColor';
+import { Grade } from './models/Evaluation';
+// usado para ler arquivos em POST
 const multer = require('multer');
 
 // pasta usada para salvar os upload's feitos
@@ -46,6 +49,7 @@ const saveDataToFile = (): void => {
         topic: classObj.getTopic(),
         semester: classObj.getSemester(),
         year: classObj.getYear(),
+        especificacaoDoCalculoDaMedia: classObj.getEspecificacaoDoCalculoDaMedia().toJSON(),
         enrollments: classObj.getEnrollments().map(enrollment => ({
           studentCPF: enrollment.getStudent().getCPF(),
           evaluations: enrollment.getEvaluations().map(evaluation => evaluation.toJSON())
@@ -89,7 +93,7 @@ const loadDataFromFile = (): void => {
       if (data.classes && Array.isArray(data.classes)) {
         data.classes.forEach((classData: any) => {
           try {
-            const classObj = new Class(classData.topic, classData.semester, classData.year);
+            const classObj = new Class(classData.topic, classData.semester, classData.year, EspecificacaoDoCalculoDaMedia.fromJSON(classData.especificacaoDoCalculoDaMedia));
             classes.addClass(classObj);
 
             // Load enrollments for this class
@@ -133,15 +137,22 @@ const loadDataFromFile = (): void => {
   }
 };
 
+// Test mode flag to disable file persistence
+const isTestMode = process.env.NODE_ENV === 'test';
+
 // Trigger save after any modification (async to not block operations)
 const triggerSave = (): void => {
-  setImmediate(() => {
-    saveDataToFile();
-  });
+  if (!isTestMode) {
+    setImmediate(() => {
+      saveDataToFile();
+    });
+  }
 };
 
-// Load existing data on startup
-loadDataFromFile();
+// Load existing data on startup (only in non-test mode)
+if (!isTestMode) {
+  loadDataFromFile();
+}
 
 // Helper function to clean CPF
 const cleanCPF = (cpf: string): string => {
@@ -291,7 +302,7 @@ app.post('/api/classes', (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Topic, semester, and year are required' });
     }
 
-    const classObj = new Class(topic, semester, year);
+    const classObj = new Class(topic, semester, year, DEFAULT_ESPECIFICACAO_DO_CALCULO_DA_MEDIA);
     const newClass = classes.addClass(classObj);
     triggerSave(); // Save to file after adding class
     res.status(201).json(newClass.toJSON());
@@ -489,8 +500,8 @@ app.post('/api/classes/gradeImport/:classId', upload_dir.single('file'), async (
   res.status(501).json({ error: "Endpoint ainda não implementado." });
 });
 
-// GET /api/classes/:ClassId/stauts/alunos - Listar o status de cor de cada aluno da turma 
-app.get('/api/classes/:classId/status/alunos', (req: Request, res: Response) => {
+// GET /api/classes/:classId/report - Generate statistics report for a class
+app.get('/api/classes/:classId/report', (req: Request, res: Response) => {
   try {
     const { classId } = req.params;
     
@@ -499,102 +510,81 @@ app.get('/api/classes/:classId/status/alunos', (req: Request, res: Response) => 
       return res.status(404).json({ error: 'Class not found' });
     }
 
-    const enrollments = classObj.getEnrollments();
-    
-    const studentsWithStatus = enrollments.map(enrollment => {
-      const student = enrollment.getStudent();
-      const studentCpf = student.getCPF();
-      
-      const statusColor = getClassificacaoAcademica(studentCpf, classId);
-
-      const currentMetrics = {
-        studentCpf: studentCpf,
-        studentName: student.name,
-        classId: classId,
-        mediaParcial: getStudentMediaParcial(studentCpf, classId) ?? 0,
-        reprovadoPorFalta: isStudentReprovadoPorFalta(studentCpf, classId) ?? false,
-        reprovacoesAnteriores: getActualPreviousFailuresCount(studentCpf, classId) ?? 0,
-        frequenciaPercentual: getStudentFrequencyPercentage(studentCpf, classId) ?? 0.0,
-      };
-      
-      return {
-        cpf: studentCpf,
-        name: student.name,
-        ...statusColor,
-        currentMetrics: currentMetrics, 
-      };
-    });
-    
-    res.json(studentsWithStatus);
+    const report = new Report(classObj);
+    res.json(report.toJSON());
   } catch (error) {
-    console.error('Erro ao listar status dos alunos:', error);
-    res.status(500).json({ error: 'Erro interno do servidor ao listar status acadêmico. Verifique a implementação das funções do service.' });
+    res.status(400).json({ error: (error as Error).message });
   }
 });
 
-// PUT /api/classes/:classID/enrollments/:studentCPF/metrics - Atualizar o status de um aluno após modificação
-app.put('/api/classes/:classId/enrollments/:studentCPF/metrics', (req: Request, res: Response) => {
+// GET /api/classes/:classId/students-status - Retorna cor do aluno com base na situacao academica
+app.get('/api/classes/:classId/students-status', (req: Request, res: Response) => {
   try {
-    const { classId, studentCPF } = req.params;
-    const { newMediaPreFinal, newReprovadoPorFalta, newAbsenceCount } = req.body; 
-    
+    const { classId } = req.params;
     const classObj = classes.findClassById(classId);
+    
     if (!classObj) {
       return res.status(404).json({ error: 'Class not found' });
     }
-
-    const cleanedCPF = cleanCPF(studentCPF);
-    const enrollment = classObj.findEnrollmentByStudentCPF(cleanedCPF);
-    if (!enrollment) {
-      return res.status(404).json({ error: 'Student not enrolled in this class' });
-    }
     
-    let updated = false;
+    const enrollments = classObj.getEnrollments();
+    const spec = classObj.getEspecificacaoDoCalculoDaMedia();
 
-    if (newMediaPreFinal !== undefined && typeof newMediaPreFinal === 'number') {
-        enrollment.setMediaPreFinal(newMediaPreFinal); //substituir por interface quando implementada
-        updated = true;
-    }
+    //Calcular a média atual de cada aluno dinamicamente (enquanto n há feature)
+    const studentData = enrollments.map(enrollment => {
+      const evaluations = enrollment.getEvaluations();
+      
+      const notasDasMetas = new Map<string, Grade>();
+      evaluations.forEach(ev => {
+        notasDasMetas.set(ev.getGoal(), ev.getGrade());
+      });
 
-    if (newReprovadoPorFalta !== undefined && typeof newReprovadoPorFalta === 'boolean') {
-        enrollment.setReprovadoPorFalta(newReprovadoPorFalta); //substituir pela interface quando implementada
-        updated = true;
-    }
+      const mediaAluno = spec.calc(notasDasMetas);
 
-    if (newAbsenceCount !== undefined && typeof newAbsenceCount === 'number') {
-        enrollment.setAbsences(newAbsenceCount); //substituir pela interface quando implementada
-        updated = true;
-    }
-
-    if (!updated) {
-         return res.status(400).json({ error: 'Nenhuma métrica válida fornecida para atualização.' });
-    }
-
-    const statusColor = getClassificacaoAcademica(cleanedCPF, classId);
-
-    const currentMetrics = { 
-        studentCpf: cleanedCPF,
-        studentName: enrollment.getStudent().name,
-        classId: classId,
-        mediaParcial: getStudentMediaParcial(cleanedCPF, classId) ?? 0,
-        reprovadoPorFalta: isStudentReprovadoPorFalta(cleanedCPF, classId) ?? false,
-        reprovacoesAnteriores: getActualPreviousFailuresCount(cleanedCPF, classId) ?? 0,
-        frequenciaPercentual: getStudentFrequencyPercentage(cleanedCPF, classId) ?? 0.0,
-    };
-
-    res.json({
-        message: 'Métricas e classificação atualizadas com sucesso.',
-        cpf: cleanedCPF,
-        name: currentMetrics.studentName,
-        novaClassificacao: statusColor,
-        currentMetrics: currentMetrics
+      return {
+        enrollment,
+        mediaAluno
+      };
     });
+
+    // Calcular a média da turma dinamicamente (enquanto n há feature)
+    const mediasValidas = studentData.map(d => d.mediaAluno);
+    const mediaTurma = mediasValidas.length > 0
+        ? mediasValidas.reduce((acc, curr) => acc + curr, 0) / mediasValidas.length
+        : 0;
+
+    const result = studentData.map(({ enrollment, mediaAluno }) => {
+      const student = enrollment.getStudent();
+      const temReprovacao = Boolean(enrollment.getReprovadoPorFalta());
+
+      const color = getStudentStatusColor(
+        mediaAluno,
+        mediaTurma,
+        temReprovacao
+      );
+
+      return {
+        student: student.toJSON(),
+        mediaAluno,
+        mediaTurma,
+        temReprovacaoAnterior: temReprovacao,
+        statusColor: color
+      };
+    });
+
+    res.json(result);
   } catch (error) {
-    console.error('Erro ao atualizar métricas:', error);
-    res.status(500).json({ error: (error as Error).message });
+    console.error('Erro Fatal ao calcular status:', error);
+    res.status(500).json({ error: 'Failed to calculate students status' });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export the app for testing
+export { app, studentSet, classes };
+
+// Only start the server if this file is run directly (not imported for testing)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
