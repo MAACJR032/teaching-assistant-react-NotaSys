@@ -5,6 +5,15 @@ import EnrollmentService from '../services/EnrollmentService';
 
 import { ImportGradeComponent } from './ImportGrade';
 
+// Função para formatar média com uma casa decimal
+const formatMedia = (value: number | null): string => {
+  if (typeof value !== 'number' || isNaN(value)) {
+    return '-';
+  }
+  // O servidor já arredonda para uma casa decimal, então apenas formatamos
+  return value.toFixed(1).replace('.', ',');
+};
+
 interface EvaluationsProps {
   onError: (errorMessage: string) => void;
 }
@@ -202,9 +211,7 @@ const Evaluations: React.FC<EvaluationsProps> = ({ onError }) => {
                         );
                       })}
                       <td className="average-cell">
-                        {typeof enrollment.mediaPreFinal === 'number' && !isNaN(enrollment.mediaPreFinal)
-                          ? enrollment.mediaPreFinal.toFixed(1)
-                          : '-'}
+                        {formatMedia(enrollment.mediaPreFinal)}
                       </td>
                       <td className="final-cell">
                       <select
@@ -227,9 +234,7 @@ const Evaluations: React.FC<EvaluationsProps> = ({ onError }) => {
                       </select>
                     </td>
                       <td className="average-cell">
-                        {typeof enrollment.mediaPosFinal === 'number' && !isNaN(enrollment.mediaPosFinal)
-                          ? enrollment.mediaPosFinal.toFixed(1)
-                          : '-'}
+                        {formatMedia(enrollment.mediaPosFinal)}
                       </td>
                     </tr>
                   );

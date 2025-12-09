@@ -52,6 +52,7 @@ const saveDataToFile = (): void => {
         enrollments: classObj.getEnrollments().map(enrollment => ({
           studentCPF: enrollment.getStudent().getCPF(),
           evaluations: enrollment.getEvaluations().map(evaluation => evaluation.toJSON()),
+          notaFinal: (typeof (enrollment as any).getNotaFinal === 'function') ? (enrollment as any).getNotaFinal() : null,
           mediaPreFinal: enrollment.getMediaPreFinal(),
           mediaPosFinal: enrollment.getMediaPosFinal(),
           reprovadoPorFalta: enrollment.getReprovadoPorFalta()
@@ -112,7 +113,13 @@ const loadDataFromFile = (): void => {
                       enrollment.addOrUpdateEvaluation(evaluation.getGoal(), evaluation.getGrade());
                     });
                   }
-                    
+                    // Load notaFinal if provided (keeps evaluations in sync)
+                    if (typeof enrollmentData.notaFinal !== 'undefined') {
+                      // setNotaFinal will add/update/remove the 'Final' evaluation as appropriate
+                      if (typeof (enrollment as any).setNotaFinal === 'function') {
+                        (enrollment as any).setNotaFinal(enrollmentData.notaFinal);
+                      }
+                    }
                     // Load medias and attendance status if provided in the data file
                     if (typeof enrollmentData.mediaPreFinal !== 'undefined') {
                       enrollment.setMediaPreFinal(enrollmentData.mediaPreFinal);
@@ -489,7 +496,8 @@ app.put('/api/classes/:classId/enrollments/:studentCPF/evaluation', (req: Reques
     // Recalculate media values after evaluation change so they are sent to the client
     try {
       enrollment.calculateMediaPreFinal();
-      // enrollment.calculateMediaPosFinal();
+      // Recalculate post-final average as well (will use Final evaluation if present)
+      enrollment.calculateMediaPosFinal();
     } catch (err) {
       // ignore errors during recalculation
     }
