@@ -73,42 +73,38 @@ export class Enrollment {
 
     const resultado = roundToOneDecimal(specificacao_calculo_media.calc(notasDasMetas));
     this.setMediaPreFinal(resultado);
+    
+    // aluno já está aprovado e não precisa fazer prova final
+    if (resultado >= 7) {
+      this.setNotaFinal(null);
+      this.setMediaPosFinal(null);
+    }
+    
     return resultado;
   }
 
   // Calcula a média do estudante depois da prova final
   calculateMediaPosFinal(): number | null {
-    // garante que temos mediaPreFinal calculada
     let pre = (typeof this.mediaPreFinal === 'number' && !isNaN(this.mediaPreFinal))
       ? this.mediaPreFinal
       : this.calculateMediaPreFinal();
 
-    // Se pré-final é null (algum goal é '-'), retorna null
-    if (pre === null) {
+    if (pre === null || isNaN(pre)) {
       this.setMediaPosFinal(null);
       return null;
     }
 
-    // Se pré-final não existir por algum motivo, tratamos como 0 ou retornamos null.
-    if (isNaN(pre)) {
-      this.setMediaPosFinal(pre as any); // mantém comportamento atual (ou ajuste conforme desejar)
-      return pre as any;
-    }
-
-    // Se o aluno já tem média maior que 7, não precisa considerar a prova final
-    // Neste caso queremos que a média pós-final seja apresentada como '-' na UI,
-    // então guardamos `null` em vez de um número.
-    if (pre > 7) {
+    // Retorna a média pré-final se aluno já foi aprovado
+    if (pre >= 7) {
       this.setMediaPosFinal(null);
       return pre;
     }
 
-    // Use notaFinal (sincronizada com a avaliação 'Final')
+    // Se não há notaFinal selecionada, considera ela como zero
     const notaFinalConcept = this.notaFinal;
     if (!notaFinalConcept) {
-      // sem nota final: pos-final é a própria pré-final
-      this.setMediaPosFinal(pre);
-      return pre;
+      this.setMediaPosFinal(pre / 2);
+      return pre / 2;
     }
 
     const specJSON = DEFAULT_ESPECIFICACAO_DO_CALCULO_DA_MEDIA.toJSON();
@@ -133,6 +129,10 @@ export class Enrollment {
 
   // Get média do estudante depois da final
   getMediaPosFinal(): number | null {
+    if (this.mediaPreFinal && this.mediaPreFinal >= 7) {
+      return this.mediaPreFinal;
+    }
+    
     return this.mediaPosFinal;
   }
 
