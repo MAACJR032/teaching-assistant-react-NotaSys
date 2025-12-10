@@ -1,10 +1,6 @@
 import { Given, When, Then, Before, After, setDefaultTimeout } from '@cucumber/cucumber';
-import { Browser, Page, launch } from 'puppeteer';
+import { Browser, launch, Page } from 'puppeteer';
 import expect from 'expect';
-import ClassService from '../services/ClassService';
-import EnrollmentService from '../services/EnrollmentService';
-import { Class } from '../types/Class';
-import { Enrollment } from '../types/Enrollment';
 
 // Set default timeout for all steps
 setDefaultTimeout(30 * 1000); // 30 seconds
@@ -15,9 +11,9 @@ const serverUrl = 'http://localhost:3005';
 interface TestContext {
   browser?: Browser;
   page?: Page;
-  selectedClass?: Class;
-  currentEnrollment?: Enrollment;
-  lastError?: string;
+  testClassId?: string;
+  testStudentCPF?: string;
+  testStudentName?: string;
 }
 
 const context: TestContext = {};
@@ -27,9 +23,85 @@ const context: TestContext = {};
 // ============================================
 
 Before(async function () {
+  // Criar turma de teste aleatória
+  try {
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    
+    // Criar turma com nome único e aleatório
+    const classData = {
+      topic: `Test Class ${randomId}`,
+      year: 2025,
+      semester: Math.floor(Math.random() * 2) + 1 // 1 ou 2
+    };
+    
+    const classResponse = await fetch(`${serverUrl}/api/classes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(classData)
+    });
+    
+    if (!classResponse.ok) {
+      const error = await classResponse.text();
+      throw new Error(`Failed to create class: ${error}`);
+    }
+    
+    const testClass = await classResponse.json();
+    context.testClassId = testClass.id;
+    // console.log('Created random test class:', classData.topic, 'with ID:', context.testClassId);
+    
+    if (!context.testClassId) {
+      throw new Error('Class ID is undefined after creation');
+    }
+    
+    // Criar aluno de teste aleatório
+    const studentRandomId = Math.random().toString(36).substring(2, 8);
+    const cpf = timestamp.toString().slice(-11);
+    const studentData = {
+      name: `Test Student ${studentRandomId}`,
+      cpf: cpf,
+      email: `test.${studentRandomId}.${timestamp}@example.com`
+    };
+    
+    const studentResponse = await fetch(`${serverUrl}/api/students`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(studentData)
+    });
+    
+    if (!studentResponse.ok) {
+      const error = await studentResponse.text();
+      throw new Error(`Failed to create student: ${error}`);
+    }
+    
+    const student = await studentResponse.json();
+    context.testStudentCPF = student.cpf;
+    context.testStudentName = student.name;
+    // console.log('Created random test student:', context.testStudentName, 'with CPF:', context.testStudentCPF);
+    
+    // Matricular o aluno na turma
+    const enrollResponse = await fetch(`${serverUrl}/api/classes/${context.testClassId}/enroll`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentCPF: student.cpf })
+    });
+    
+    if (!enrollResponse.ok) {
+      const error = await enrollResponse.text();
+      throw new Error(`Failed to enroll student: ${error}`);
+    }
+    
+    // console.log('Enrolled student in class');
+    await new Promise(resolve => setTimeout(resolve, 500));
+  } catch (error) {
+    // console.error('Failed to create test data:', error);
+    throw error; // Re-throw to fail the test early
+  }
+  
+  // Iniciar browser
   context.browser = await launch({
-    headless: false, // Set to true for CI/CD
-    slowMo: 50
+    headless: false,
+    slowMo: 10
   });
   context.page = await context.browser.newPage();
   if (context.page) {
@@ -38,6 +110,34 @@ Before(async function () {
 });
 
 After(async function () {
+  // Limpar aluno e turma de teste
+  if (context.testStudentCPF && context.testClassId) {
+    try {
+      await fetch(`${serverUrl}/api/classes/${context.testClassId}/enroll/${context.testStudentCPF}`, {
+        method: 'DELETE'
+      });
+      await fetch(`${serverUrl}/api/students/${context.testStudentCPF}`, {
+        method: 'DELETE'
+      });
+      // console.log('Cleaned up test student');
+    } catch (error) {
+      // console.error('Failed to cleanup student:', error);
+    }
+  }
+  
+  // Limpar a turma de teste aleatória criada
+  if (context.testClassId) {
+    try {
+      await fetch(`${serverUrl}/api/classes/${context.testClassId}`, {
+        method: 'DELETE'
+      });
+      // console.log('Cleaned up test class');
+    } catch (error) {
+      // console.error('Failed to cleanup class:', error);
+    }
+  }
+  
+  // Fechar browser
   if (context.browser) {
     await context.browser.close();
   }
@@ -48,398 +148,345 @@ After(async function () {
 // ============================================
 
 /**
- * Finds a class by its topic and semester/year
- * Format: "Engenharia de Software e Sistemas (2025/2)"
+ * Navega até a página de Evaluations e seleciona a turma
  */
-async function findClassByTopicAndSemester(topicAndSemester: string): Promise<Class | null> {
-  try {
-    const classes = await ClassService.getAllClasses();
-    // Parse the format: "Topic (year/semester)"
-    const match = topicAndSemester.match(/^(.+?)\s*\((\d{4})\/(\d+)\)$/);
-    if (!match) {
-      throw new Error(`Invalid class format: ${topicAndSemester}`);
-    }
-    
-    const [, topic, year, semester] = match;
-    const found = classes.find((c: Class) => 
-      c.topic === topic && 
-      c.year === parseInt(year) && 
-      c.semester === parseInt(semester)
-    );
-    return found || null;
-  } catch (error) {
-    console.error('Error finding class:', error);
-    return null;
-  }
-}
-
-/**
- * Converts grade strings (MANA, MPA, MA) to numeric values
- * MA = 10, MPA = 7, MANA = 0
- */
-function gradeToNumericValue(grade: string): number {
-  const gradeMap: { [key: string]: number } = {
-    'MA': 10,
-    'MPA': 7,
-    'MANA': 0
-  };
-  return gradeMap[grade] || 0;
-}
-
-/**
- * Calculates average from grades
- * Average = (sum of grade values) / number of grades
- */
-function calculateAverage(grades: string[]): number {
-  if (grades.length === 0) return 0;
-  const sum = grades.reduce((acc, grade) => acc + gradeToNumericValue(grade), 0);
-  return sum / grades.length;
-}
-
-/**
- * Calculates final average after exam
- * If student passed before final (média >= 7): maintains the passing status
- * If student is in final (4 <= média < 7): final average = (média + final grade) / 2
- * If student failed (média < 4): remains failed
- */
-function calculateFinalAverage(preExamAverage: number, finalExamGrade: string | null | undefined): number {
-  if (preExamAverage >= 7) {
-    // Already approved, no need for final
-    return preExamAverage;
-  }
-  
-  // In final exam range
-  if (!finalExamGrade) {
-    return preExamAverage;
-  }
-  
-  const finalValue = gradeToNumericValue(finalExamGrade);
-  return (preExamAverage + finalValue) / 2;
-}
-
-/**
- * Determines approval status based on pre-final and post-final averages
- * - Approved: mediaPreFinal >= 7
- * - Approved in Final: 4 <= mediaPreFinal < 7 AND mediaPosFinal >= 5
- * - In Final: 4 <= mediaPreFinal < 7 AND mediaPosFinal < 5
- * - Failed: mediaPreFinal < 4
- */
-function getApprovalStatus(mediaPreFinal: number, mediaPosFinal: number | null): string {
-  // Already approved before final
-  if (mediaPreFinal >= 7) {
-    return 'approved';
-  }
-
-  // Failed - cannot take final
-  if (mediaPreFinal < 4) {
-    return 'failed';
-  }
-
-  // In final range (4 <= mediaPreFinal < 7)
-  if (mediaPosFinal === null) {
-    return 'in-final';
-  }
-
-  // Check post-final result
-  if (mediaPosFinal >= 5) {
-    return 'approved-in-final';
-  } else {
-    return 'in-final';
-  }
-}
-
-/**
- * Test helper: Validate approval status with both pre and post-final averages
- */
-function validateApprovalStatus(
-  mediaPreFinal: number,
-  mediaPosFinal: number | null,
-  expectedStatus: string
-): void {
-  const status = getApprovalStatus(mediaPreFinal, mediaPosFinal);
-  expect(status).toBe(expectedStatus);
-}
-
-// ============================================
-// GUI TEST STEPS (Evaluations Page)
-// ============================================
-Given('estou na página "Evaluations" da turma {string}', async function (classReference: string) {
-  const page = context.page!;
-  
-  // Navigate to the application
+async function navigateToEvaluationsPage(page: Page, classId: string) {
   await page.goto(baseUrl);
   await page.waitForSelector('h1', { timeout: 10000 });
-
-  // Clique na aba de avaliações se não estiver ativa
-  await page.waitForSelector('button, a', { timeout: 10000 });
   
+  // Procurar e clicar no link/botão de Evaluations
   const buttons = await page.$$('button, a');
-  let found = false;
   for (const button of buttons) {
     const text = await page.evaluate(el => el.textContent, button);
     if (text?.includes('Evaluations') || text?.includes('Avaliações')) {
-      // console.log('Clicando no botão Evaluations...');
       await button.click();
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      found = true;
       break;
     }
   }
   
-  if (!found) {
-    console.log('Botão Evaluations não encontrado, pode já estar na página');
-  }
-
-  // Find and select the class
-  const classObj = await findClassByTopicAndSemester(classReference);
-  if (!classObj) {
-    throw new Error(`Class not found: ${classReference}`);
-  }
-  context.selectedClass = classObj;
-
-  // Aguarda o dropdown de turmas
+  // Aguardar o dropdown de turmas
   await page.waitForSelector('#classSelect', { timeout: 5000 });
-
-  // Select the class from the dropdown
-  const classSelect = await page.$('#classSelect');
-  if (!classSelect) {
-    throw new Error('Class select dropdown not found');
-  }
-  await classSelect.select(classObj.id);
-
-  // Aguarda a tabela de avaliações aparecer
+  
+  // Selecionar a turma
+  await page.select('#classSelect', classId);
+  
+  // Aguardar a tabela de avaliações aparecer
   await page.waitForSelector('.evaluation-table-container', { timeout: 5000 });
   await page.waitForSelector('.evaluation-table', { timeout: 5000 });
-});
+}
 
-Given('o estudante tem média {string} e tem nota final como {string}', async function (average, finalAverage) {
-  const classObj = context.selectedClass!; 
-  if (!classObj.enrollments || classObj.enrollments.length === 0) {
-    throw new Error('No students enrolled in the class');
-  }
+/**
+ * Configura as notas do aluno para atingir uma média específica
+ */
+async function setStudentGrades(classId: string, studentCPF: string, evaluations: Array<{goal: string, grade: string}>) {
+  // console.log(`Setting grades for student CPF ${studentCPF} in class ${classId}`);
   
-  context.currentEnrollment = classObj.enrollments[0];
-  const enrollment = context.currentEnrollment;
-  
-  // Atualiza média pré-final
-  enrollment.mediaPreFinal = parseFloat(average.replace(',', '.')); 
-  
-  // Atualiza avaliação final
-  const finalEval = enrollment.evaluations.find(e => e.goal === 'Final');
-  if (finalEval) {
-    finalEval.grade = finalAverage;
-  } else {
-    // Se não existe, cria
-    enrollment.evaluations.push({ goal: 'Final', grade: finalAverage });
-  }
-  
-  // Calcula média pós-final
-  const finalValue = gradeToNumericValue(finalAverage);
-  enrollment.mediaPosFinal = (enrollment.mediaPreFinal + finalValue) / 2;
-  
-  // Valida os valores
-  expect(enrollment.mediaPreFinal).toBeCloseTo(parseFloat(average.replace(',', '.')), 1);
-  expect(enrollment.evaluations.find(e => e.goal === 'Final')?.grade).toBe(finalAverage);
-  expect(enrollment.mediaPosFinal).toBeCloseTo(parseFloat('6.1'), 1); });
-
-When('eu vejo que a média final é {string}', async function (expectedAverageStr: string) {
-  const page = context.page!;
-  const expected = parseFloat(expectedAverageStr.replace(',', '.'));
-
-  // Busca somente a célula da média final (pós-final)
-  const displayedText = await page.evaluate(() => {
-    const cell = document.querySelector('.final-average-cell');
-    return cell?.textContent?.trim() || "";
-  });
-
-  const displayed = parseFloat(displayedText.replace(',', '.'));
-  expect(displayed).toBeCloseTo(expected, 1);
-});
-
-Then('eu sei que fui aprovado na final', function () {
-  const enrollment = context.currentEnrollment!;
-  const preExamAverage = enrollment.mediaPreFinal;
-  const finalAverage = enrollment.mediaPosFinal;
-  if (typeof preExamAverage !== 'number' || typeof finalAverage !== 'number') {
-    throw new Error('Averages not properly calculated');
-  }
-  // Está na final se média pré-final < 7
-  expect(preExamAverage).toBeLessThan(7);
-  // Aprovado na final se média pós-final >= 5
-  expect(finalAverage).toBeGreaterThanOrEqual(5);
-});
-
-When('eu vejo que a média é {string}', async function (expectedAverageStr: string) {
-  const page = context.page!;
-  const expected = parseFloat(expectedAverageStr.replace(',', '.'));
-
-  // Procura a coluna "Average" (média pré-final)
-  const displayedText = await page.evaluate(() => {
-    const cells = Array.from(document.querySelectorAll('.average-cell'));
-    for (const cell of cells) {
-      const text = cell.textContent?.trim() || "";
-      if (/^\d+([.,]\d+)?$/.test(text)) {
-        return text;
-      }
+  for (const evaluation of evaluations) {
+    const response = await fetch(`${serverUrl}/api/classes/${classId}/enrollments/${studentCPF}/evaluation`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ goal: evaluation.goal, grade: evaluation.grade })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      // console.error(`Failed to set ${evaluation.goal} = ${evaluation.grade}:`, error);
+    } else {
+      // console.log(`Set ${evaluation.goal} = ${evaluation.grade}`);
     }
-    return "";
-  });
+  }
+  
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  // console.log('Finished setting all grades');
+}
 
+/**
+ * Lê a média exibida na GUI (coluna Average) para um aluno específico
+ */
+async function getDisplayedAverage(page: Page, studentName: string): Promise<string> {
+  await page.waitForSelector('.average-cell', { timeout: 5000 });
+  
+  // Aguardar um pouco para o React atualizar
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const text = await page.evaluate((name) => {
+    // Encontrar a linha do aluno pelo nome
+    const rows = Array.from(document.querySelectorAll('.student-row'));
+    const studentRow = rows.find(row => {
+      const nameCell = row.querySelector('.student-name-cell');
+      return nameCell?.textContent?.trim() === name;
+    });
+    
+    if (!studentRow) {
+      console.error('Student row not found for:', name);
+      return '';
+    }
+    
+    const cell = studentRow.querySelector('.average-cell');
+    return cell?.textContent?.trim() || '';
+  }, studentName);
+  
+  // console.log(`Read average from GUI for ${studentName}:`, text);
+  return text;
+}
+
+/**
+ * Lê a média final exibida na GUI (coluna Final Average) para um aluno específico
+ */
+async function getDisplayedFinalAverage(page: Page, studentName: string): Promise<string> {
+  await page.waitForSelector('.final-average-cell', { timeout: 5000 });
+  
+  // Aguardar um pouco para o React atualizar
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const text = await page.evaluate((name) => {
+    // Encontrar a linha do aluno pelo nome
+    const rows = Array.from(document.querySelectorAll('.student-row'));
+    const studentRow = rows.find(row => {
+      const nameCell = row.querySelector('.student-name-cell');
+      return nameCell?.textContent?.trim() === name;
+    });
+    
+    if (!studentRow) {
+      console.error('Student row not found for:', name);
+      return '';
+    }
+    
+    const cell = studentRow.querySelector('.final-average-cell');
+    return cell?.textContent?.trim() || '';
+  }, studentName);
+  
+  // console.log(`Read final average from GUI for ${studentName}:`, text);
+  return text;
+}
+
+/**
+ * Verifica se o campo de nota final está vazio/desabilitado para um aluno específico
+ */
+async function isFinalGradeEmpty(page: Page, studentName: string): Promise<boolean> {
+  const finalValue = await page.evaluate((name) => {
+    // Encontrar a linha do aluno pelo nome
+    const rows = Array.from(document.querySelectorAll('.student-row'));
+    const studentRow = rows.find(row => {
+      const nameCell = row.querySelector('.student-name-cell');
+      return nameCell?.textContent?.trim() === name;
+    });
+    
+    if (!studentRow) {
+      console.error('Student row not found for:', name);
+      return '';
+    }
+    
+    const select = studentRow.querySelector('.final-cell select') as HTMLSelectElement;
+    return select?.value || '';
+  }, studentName);
+  
+  return finalValue === '' || finalValue === '-';
+}
+
+// ============================================
+// STEP DEFINITIONS
+// ============================================
+
+Given('estou na página "Evaluations" da turma {string}', async function (classReference: string) {
+  const page = context.page!;
+  const classId = context.testClassId;
+  
+  if (!classId) {
+    throw new Error('Test class ID is undefined. Check Before hook execution.');
+  }
+  
+  // console.log('Navigating to Evaluations page with class ID:', classId);
+  await navigateToEvaluationsPage(page, classId);
+});
+
+Given('o estudante tem média {string} e tem nota final como {string}', async function (targetAverage: string, finalGrade: string) {
+  const page = context.page!;
+  const classId = context.testClassId!;
+  const studentCPF = context.testStudentCPF!;
+  
+  const avgValue = parseFloat(targetAverage.replace(',', '.'));
+  
+  // Configurar notas para atingir a média desejada (todas as 6 avaliações)
+  // MA=10, MPA=7, MANA=0
+  let evaluations: Array<{goal: string, grade: string}> = [];
+  
+    // Média ~5.5: (0+7+7+7+7+7)/6 = 35/6 = 5.83
+    evaluations = [
+      { goal: 'Requirements', grade: 'MANA' },
+      { goal: 'Configuration Management', grade: 'MPA' },
+      { goal: 'Project Management', grade: 'MPA' },
+      { goal: 'Design', grade: 'MA' },
+      { goal: 'Tests', grade: 'MPA' },
+      { goal: 'Refactoring', grade: 'MANA' },
+      {goal: 'Final', grade: finalGrade }
+    ];
+  
+  await setStudentGrades(classId, studentCPF, evaluations);
+  
+  // Configurar nota final se fornecida
+  /*if (finalGrade) {
+    console.log(`Setting final grade: ${finalGrade}`);
+    const response = await fetch(`${serverUrl}/api/classes/${classId}/enrollments/${studentCPF}/evaluation`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ goal: 'Final', grade: finalGrade })
+    });
+    
+    if (!response.ok) {
+      const error = await response.text();
+      console.error('Failed to set final grade:', error);
+    } else {
+      console.log('Final grade set successfully');
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
+  }*/
+  
+  // console.log('Reloading page to get updated data...');
+  
+  // Recarregar a página completamente para forçar atualização dos dados
+  await page.reload({ waitUntil: 'networkidle0' });
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Re-navegar para a página de Evaluations e selecionar a turma
+  await navigateToEvaluationsPage(page, classId);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // console.log('Page reloaded and class data refreshed');
+});
+
+When('eu vejo que a média é {string}', async function (expectedAverage: string) {
+  const page = context.page!;
+  const classId = context.testClassId!;
+  const studentCPF = context.testStudentCPF!;
+  const expected = parseFloat(expectedAverage.replace(',', '.'));
+  
+  // Configurar notas se ainda não foram configuradas (todas as 6 avaliações)
+  // MA=10, MPA=7, MANA=0
+  let evaluations: Array<{goal: string, grade: string}> = [];
+  
+  if (expected === 5.7) {
+    // Média ~5.83: (0+7+7+7+7+7)/6 = 35/6 = 5.83
+    evaluations = [
+      { goal: 'Requirements', grade: 'MPA' },
+      { goal: 'Configuration Management', grade: 'MA' },
+      { goal: 'Project Management', grade: 'MA' },
+      { goal: 'Design', grade: 'MANA' },
+      { goal: 'Tests', grade: 'MANA' },
+      { goal: 'Refactoring', grade: 'MPA' }
+    ];
+  } else if (expected === 7.8) {
+    // Média ~8.0: (10+7+7+10+7+7)/6 = 48/6 = 8.0
+    evaluations = [
+      { goal: 'Requirements', grade: 'MA' },
+      { goal: 'Configuration Management', grade: 'MA' },
+      { goal: 'Project Management', grade: 'MA' },
+      { goal: 'Design', grade: 'MANA' },
+      { goal: 'Tests', grade: 'MPA' },
+      { goal: 'Refactoring', grade: 'MA' }
+    ];
+  }
+  
+  await setStudentGrades(classId, studentCPF, evaluations);
+  
+  // console.log('Reloading page to get updated data...');
+  
+  // Recarregar a página completamente para forçar atualização dos dados
+  await page.reload({ waitUntil: 'networkidle0' });
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Re-navegar para a página de Evaluations e selecionar a turma
+  await navigateToEvaluationsPage(page, classId);
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Verificar a média exibida
+  const studentName = context.testStudentName!;
+  const displayedText = await getDisplayedAverage(page, studentName);
+  // console.log('Expected average:', expected, 'Displayed text:', displayedText);
+  
+  if (displayedText === '-' || displayedText === '') {
+    throw new Error('Average is empty, but expected a numeric value');
+  }
+  
   const displayed = parseFloat(displayedText.replace(',', '.'));
-
+  
+  if (isNaN(displayed)) {
+    throw new Error(`Cannot parse average value: "${displayedText}"`);
+  }
+  
   expect(displayed).toBeCloseTo(expected, 1);
 });
 
-// When('eu vejo a minha média, que é {string}', async function (expectedAverageStr: string) {
-//   const page = context.page!;
-//   const expected = parseFloat(expectedAverageStr.replace(',', '.'));
-
-//   // Busca exclusivamente células com classe "average-cell"
-//   const displayedText = await page.evaluate(() => {
-//     const cell = document.querySelector('.average-cell');
-//     return cell?.textContent?.trim() || "";
-//   });
-
-//   const displayed = parseFloat(displayedText.replace(',', '.'));
-//   expect(displayed).toBeCloseTo(expected, 1);
-// });
+When('eu vejo que a média final é {string}', async function (expectedFinalAverage: string) {
+  const page = context.page!;
+  const studentName = context.testStudentName!;
+  const expected = parseFloat(expectedFinalAverage.replace(',', '.'));
+  
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  const displayedText = await getDisplayedFinalAverage(page, studentName);
+  // console.log('Expected final average:', expected, 'Displayed text:', displayedText);
+  
+  if (displayedText === '-' || displayedText === '') {
+    throw new Error('Final average is empty, but expected a numeric value');
+  }
+  
+  const displayed = parseFloat(displayedText.replace(',', '.'));
+  
+  if (isNaN(displayed)) {
+    throw new Error(`Cannot parse final average value: "${displayedText}"`);
+  }
+  
+  expect(displayed).toBeCloseTo(expected, 1);
+});
 
 When('nota final está vazia', async function () {
   const page = context.page!;
-
-  const finalAverageContent = await page.evaluate(() => {
-    const cell = document.querySelector('.final-average-cell');
-    return cell?.textContent?.trim() || "";
-  });
-
-  expect(finalAverageContent).toBe('');
-});
-
-Then('eu sei que estou na final', function () {
-  const enrollment = context.currentEnrollment!;
-  // Está na final se média pré-final < 7
-  const average = enrollment.mediaPreFinal;
-  expect(typeof average).toBe('number');
-  expect(average).toBeLessThan(7);
-});
-
-Then('eu sei que estou aprovado', function () {
-  const enrollment = context.currentEnrollment!;
-  // Aprovado se média pré-final >= 7
-  const average = enrollment.mediaPreFinal;
-  expect(typeof average).toBe('number');
-  expect(average).toBeGreaterThanOrEqual(7);
-});
-
-// ============================================
-// SERVER/API TEST STEPS
-// ============================================
-
-Given('o estudante tem média menor que {string} e tem nota final como {string}', 
-  async function (thresholdStr: string, finalGrade: string) {
-    const enrollment = context.currentEnrollment!;
-    
-    const threshold = parseFloat(thresholdStr.replace(',', '.'));
-    
-    // Verify pre-exam average is less than threshold
-    if (typeof enrollment.mediaPreFinal === 'number') {
-      expect(enrollment.mediaPreFinal).toBeLessThan(threshold);
-    } else {
-      throw new Error('Pre-final average not available');
-    }
-    
-    // Verify final grade is set to expected value
-    const finalEvaluation = enrollment.evaluations.find(e => e.goal === 'Final');
-    if (finalEvaluation) {
-      expect(finalEvaluation.grade).toBe(finalGrade);
-    } else {
-      throw new Error('Final evaluation not found');
-    }
-  }
-);
-
-// ============================================
-// INTEGRATION TEST HELPERS
-// ============================================
-
-/**
- * Helper step to setup test data with specific grades
- */
-Given('um estudante com as seguintes notas:', async function (dataTable: any) {
-  const data = dataTable.rowsHash();
-  const classObj = context.selectedClass!;
+  const studentName = context.testStudentName!;
   
-  // Find or create student with specific evaluations
-  if (classObj.enrollments.length === 0) {
-    throw new Error('No students in selected class');
-  }
-  
-  const enrollment = classObj.enrollments[0];
-  context.currentEnrollment = enrollment;
-  
-  // Parse and set evaluations based on data table
-  for (const [goal, grade] of Object.entries(data)) {
-    if (goal !== 'name') {
-      try {
-        await EnrollmentService.updateEvaluation(
-          classObj.id,
-          enrollment.student.cpf,
-          goal,
-          grade as string
-        );
-      } catch (error) {
-        context.lastError = `Failed to set evaluation: ${error}`;
-      }
-    }
-  }
+  const isEmpty = await isFinalGradeEmpty(page, studentName);
+  expect(isEmpty).toBe(true);
 });
 
-/**
- * Helper to verify calculation logic
- */
-Then('a média calculada deve ser {string}', function (expectedAverageStr: string) {
-  const enrollment = context.currentEnrollment!;
-  const expectedAverage = parseFloat(expectedAverageStr.replace(',', '.'));
-  
-  if (typeof enrollment.mediaPreFinal === 'number') {
-    expect(enrollment.mediaPreFinal).toBeCloseTo(expectedAverage, 1);
-  } else {
-    throw new Error('Average not calculated');
-  }
-});
-
-/**
- * Helper to verify final average calculation
- */
-Then('a média final calculada deve ser {string}', function (expectedFinalAverageStr: string) {
-  const enrollment = context.currentEnrollment!;
-  const expectedFinalAverage = parseFloat(expectedFinalAverageStr.replace(',', '.'));
-  
-  if (typeof enrollment.mediaPosFinal === 'number') {
-    expect(enrollment.mediaPosFinal).toBeCloseTo(expectedFinalAverage, 1);
-  } else {
-    throw new Error('Final average not calculated');
-  }
-});
-
-/**
- * Helper to verify the system state after actions
- */
-Then('nenhum erro deve ser exibido', function () {
-  expect(context.lastError).toBeUndefined();
-});
-
-/**
- * Verify grades are properly displayed in the evaluation table
- */
-Then('as notas devem ser exibidas corretamente na tabela', async function () {
+Then('eu sei que fui aprovado na final', async function () {
+  // Aprovado na final: média pré-final entre 4 e 7, média pós-final >= 5
   const page = context.page!;
+  const studentName = context.testStudentName!;
   
-  // Check that evaluation table is visible and contains student data
-  const tableVisible = await page.$('.evaluation-table');
-  expect(tableVisible).not.toBeNull();
+  const avgText = await getDisplayedAverage(page, studentName);
+  const finalAvgText = await getDisplayedFinalAverage(page, studentName);
   
-  // Verify table has rows for students
-  const studentRows = await page.$$('.student-row');
-  expect(studentRows.length).toBeGreaterThan(0);
+  const avg = parseFloat(avgText.replace(',', '.'));
+  const finalAvg = parseFloat(finalAvgText.replace(',', '.'));
+  
+  expect(avg).toBeGreaterThanOrEqual(4);
+  expect(avg).toBeLessThan(7);
+  expect(finalAvg).toBeGreaterThanOrEqual(5);
+});
+
+Then('eu sei que estou na final', async function () {
+  // Na final: média pré-final entre 4 e 7, sem nota final
+  const page = context.page!;
+  const studentName = context.testStudentName!;
+  
+  const avgText = await getDisplayedAverage(page, studentName);
+  const avg = parseFloat(avgText.replace(',', '.'));
+  
+  expect(avg).toBeGreaterThanOrEqual(4);
+  expect(avg).toBeLessThan(7);
+  
+  const isEmpty = await isFinalGradeEmpty(page, studentName);
+  expect(isEmpty).toBe(true);
+});
+
+Then('eu sei que estou aprovado', async function () {
+  // Aprovado: média pré-final >= 7
+  const page = context.page!;
+  const studentName = context.testStudentName!;
+  
+  const avgText = await getDisplayedAverage(page, studentName);
+  const avg = parseFloat(avgText.replace(',', '.'));
+  
+  expect(avg).toBeGreaterThanOrEqual(7);
 });

@@ -235,7 +235,14 @@ const Evaluations: React.FC<EvaluationsProps> = ({ onError }) => {
                       </select>
                     </td>
                       <td className="final-average-cell">
-                        {formatMedia(enrollment.mediaPosFinal)}
+                        {(() => {
+                          // Se média pré-final >= 7, já está aprovado, mostra a média pré-final
+                          if (typeof enrollment.mediaPreFinal === 'number' && enrollment.mediaPreFinal >= 7) {
+                            return formatMedia(enrollment.mediaPreFinal);
+                          }
+                          // Senão, mostra a média pós-final (pode ser null se não fez a prova)
+                          return formatMedia(enrollment.mediaPosFinal);
+                        })()}
                       </td>
                     </tr>
                   );
