@@ -6,16 +6,6 @@
       "email": "phmb@cin.ufpe.br"
     },
     {
-      "name": "Maria Modularidade",
-      "cpf": "22222222222",
-      "email": "mm@cin.ufpe.br"
-    },
-    {
-      "name": "João Elegância",
-      "cpf": "33333333333",
-      "email": "je@cin.ufpe.br"
-    },
-    {
       "name": "Joana Refatoração",
       "cpf": "55555555555",
       "email": "jr@gmail.com"
@@ -162,149 +152,18 @@
           "reprovadoPorFalta": false
         },
         {
-          "studentCPF": "22222222222",
+          "studentCPF": "77777777777",
           "evaluations": [
             {
               "goal": "Requirements",
-              "grade": "MA"
-            },
-            {
-              "goal": "Roteiro 1",
-              "grade": "MPA"
-            },
-            {
-              "goal": "Roteiro 2",
-              "grade": "MA"
-            },
-            {
-              "goal": "Roteiro 3",
-              "grade": "MPA"
-            },
-            {
-              "goal": "Roteiro 4",
-              "grade": "MA"
-            },
-            {
-              "goal": "Roteiro 5",
-              "grade": "MPA"
-            },
-            {
-              "goal": "Roteiro 6",
-              "grade": "MA"
-            },
-            {
-              "goal": "Configuration Management",
-              "grade": "MA"
-            },
-            {
-              "goal": "Project Management",
-              "grade": "MA"
-            },
-            {
-              "goal": "Design",
-              "grade": "MA"
-            },
-            {
-              "goal": "Tests",
-              "grade": "MA"
-            },
-            {
-              "goal": "Refactoring",
-              "grade": "MA"
-            }
-          ],
-          "mediaPreFinal": 10,
-          "mediaPosFinal": null,
-          "reprovadoPorFalta": false
-        }
-      ]
-    },
-    {
-      "topic": "Engenharia de Software e Sistemas",
-      "semester": 2,
-      "year": 2025,
-      "especificacaoDoCalculoDaMedia": {
-        "pesosDosConceitos": {
-          "MA": 10,
-          "MPA": 7,
-          "MANA": 0
-        },
-        "pesosDasMetas": {
-          "Gerência de Configuração": 1,
-          "Gerência de Projeto": 1,
-          "Qualidade de Software": 1
-        }
-      },
-      "enrollments": [
-        {
-          "studentCPF": "22222222222",
-          "evaluations": [
-            {
-              "goal": "Refactoring",
-              "grade": "MA"
-            },
-            {
-              "goal": "Tests",
-              "grade": "MA"
-            },
-            {
-              "goal": "Configuration Management",
-              "grade": "MA"
-            },
-            {
-              "goal": "Final",
               "grade": "MANA"
             },
             {
-              "goal": "Design",
-              "grade": "MA"
-            },
-            {
               "goal": "Project Management",
-              "grade": "MA"
-            },
-            {
-              "goal": "Requirements",
-              "grade": "MA"
+              "grade": "MANA"
             }
           ],
-          "mediaPreFinal": 10,
-          "mediaPosFinal": null,
-          "reprovadoPorFalta": false
-        },
-        {
-          "studentCPF": "33333333333",
-          "evaluations": [
-            {
-              "goal": "Requirements",
-              "grade": "MA"
-            },
-            {
-              "goal": "Configuration Management",
-              "grade": "MA"
-            },
-            {
-              "goal": "Project Management",
-              "grade": "MA"
-            },
-            {
-              "goal": "Design",
-              "grade": "MANA"
-            },
-            {
-              "goal": "Tests",
-              "grade": "MANA"
-            },
-            {
-              "goal": "Refactoring",
-              "grade": "MA"
-            },
-            {
-              "goal": "Final",
-              "grade": "MA"
-            }
-          ],
-          "mediaPreFinal": 6.666666666666667,
+          "mediaPreFinal": 0,
           "mediaPosFinal": null,
           "reprovadoPorFalta": false
         }
