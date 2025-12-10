@@ -10,6 +10,7 @@ const formatMedia = (value: number | null): string => {
   if (typeof value !== 'number' || isNaN(value)) {
     return '-';
   }
+  console.log('media: ', value);
   // O servidor já arredonda para uma casa decimal, então apenas formatamos
   return value.toFixed(1).replace('.', ',');
 };
@@ -233,7 +234,7 @@ const Evaluations: React.FC<EvaluationsProps> = ({ onError }) => {
                         <option value="MA">MA</option>
                       </select>
                     </td>
-                      <td className="average-cell">
+                      <td className="final-average-cell">
                         {formatMedia(enrollment.mediaPosFinal)}
                       </td>
                     </tr>
